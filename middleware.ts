@@ -1,6 +1,17 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const PROTECTED_ROUTES = [
+  '/studio',
+  '/notifications',
+  '/history',
+  '/liked',
+  '/watch-later',
+  '/admin',
+]
+
+const AUTH_ROUTES = ['/sign-in', '/sign-up']
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -13,7 +24,9 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -27,20 +40,16 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
+  const { pathname } = request.nextUrl
 
-  const protectedRoutes = ['/studio', '/notifications', '/history', '/liked', '/watch-later']
-  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
-  const isAdminRoute = pathname.startsWith('/admin')
+  if (user && AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
 
-  if ((isProtectedRoute || isAdminRoute) && !user) {
+  if (!user && PROTECTED_ROUTES.some((route) => pathname.startsWith(route))) {
     const redirectUrl = new URL('/sign-in', request.url)
     redirectUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(redirectUrl)
-  }
-
-  if (user && (pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'))) {
-    return NextResponse.redirect(new URL('/', request.url))
   }
 
   return supabaseResponse
