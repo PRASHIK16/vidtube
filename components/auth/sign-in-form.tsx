@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { signInAction, signInWithGoogleAction } from '@/lib/actions/auth'
 import { toast } from 'sonner'
 
 export function SignInForm() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -20,6 +22,9 @@ export function SignInForm() {
     if (result?.error) {
       toast.error(result.error)
       setLoading(false)
+    } else if (result?.success) {
+      router.push('/')
+      router.refresh()
     }
   }
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { signUpAction, signInWithGoogleAction } from '@/lib/actions/auth'
 import { toast } from 'sonner'
 
@@ -9,6 +10,7 @@ export function SignUpForm() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -26,6 +28,9 @@ export function SignUpForm() {
     } else if (result?.emailConfirmationRequired) {
       setEmailSent(true)
       setLoading(false)
+    } else if (result?.success) {
+      router.push('/')
+      router.refresh()
     }
   }
 

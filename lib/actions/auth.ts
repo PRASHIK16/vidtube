@@ -35,7 +35,7 @@ export async function signUpAction(data: {
   password: string
   username: string
   displayName: string
-}): Promise<{ error?: string; emailConfirmationRequired?: boolean }> {
+}): Promise<{ error?: string; emailConfirmationRequired?: boolean; success?: boolean }> {
   const { email, password, username, displayName } = data
 
   const existing = await prisma.profile.findUnique({ where: { username } })
@@ -66,18 +66,18 @@ export async function signUpAction(data: {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/')
+  return { success: true }
 }
 
 export async function signInAction(data: {
   email: string
   password: string
-}): Promise<{ error?: string }> {
+}): Promise<{ error?: string; success?: boolean }> {
   const supabase = await createClient()
   const { error } = await supabase.auth.signInWithPassword(data)
   if (error) return { error: error.message }
   revalidatePath('/', 'layout')
-  redirect('/')
+  return { success: true }
 }
 
 export async function signOutAction() {
