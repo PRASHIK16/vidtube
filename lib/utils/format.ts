@@ -1,44 +1,31 @@
-import { formatDistanceToNow, format } from 'date-fns'
-
-export function formatCount(count: number): string {
-  if (count >= 1_000_000) {
-    return `${(count / 1_000_000).toFixed(1)}M`
-  }
-  if (count >= 1_000) {
-    return `${(count / 1_000).toFixed(1)}K`
-  }
-  return count.toString()
-}
-
 export function formatDuration(seconds: number): string {
-  if (!seconds || seconds < 0) return '0:00'
+  if (!seconds) return '0:00'
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
   const s = Math.floor(seconds % 60)
-  if (h > 0) {
-    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-  }
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function formatRelativeTime(date: Date | string): string {
-  return formatDistanceToNow(new Date(date), { addSuffix: true })
+export function formatViews(views: number): string {
+  if (views >= 1_000_000) return `${(views / 1_000_000).toFixed(1)}M`
+  if (views >= 1_000) return `${(views / 1_000).toFixed(0)}K`
+  return views.toString()
 }
 
-export function formatDate(date: Date | string): string {
-  return format(new Date(date), 'MMM d, yyyy')
-}
-
-export function formatWatchTime(seconds: number): string {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  if (hours > 0) return `${hours}h ${minutes}m`
-  return `${minutes}m`
-}
-
-export function formatFileSize(bytes: number): string {
-  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)} GB`
-  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`
-  if (bytes >= 1_024) return `${(bytes / 1_024).toFixed(1)} KB`
-  return `${bytes} B`
+export function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
+  const intervals = [
+    { label: 'year', seconds: 31536000 },
+    { label: 'month', seconds: 2592000 },
+    { label: 'week', seconds: 604800 },
+    { label: 'day', seconds: 86400 },
+    { label: 'hour', seconds: 3600 },
+    { label: 'minute', seconds: 60 },
+  ]
+  for (const interval of intervals) {
+    const count = Math.floor(seconds / interval.seconds)
+    if (count >= 1) return `${count} ${interval.label}${count > 1 ? 's' : ''} ago`
+  }
+  return 'just now'
 }
