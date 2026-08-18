@@ -1,8 +1,25 @@
-export default function HomePage() {
+import { Suspense } from 'react'
+import { getHomeVideos, getCategories } from '@/lib/actions/videos'
+import { VideoGrid } from '@/components/video/video-grid'
+import { CategoryBar } from '@/components/home/category-bar'
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>
+}) {
+  const { category } = await searchParams
+  const [videos, categories] = await Promise.all([
+    getHomeVideos(category),
+    getCategories(),
+  ])
+
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2">Home</h1>
-      <p className="text-muted-foreground">Video feed coming in Phase 5.</p>
+      <Suspense fallback={null}>
+        <CategoryBar categories={categories} />
+      </Suspense>
+      <VideoGrid videos={videos} />
     </div>
   )
 }
