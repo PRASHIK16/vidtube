@@ -1,0 +1,433 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ===== PROFILES =====
+model Profile {
+  id          String   @id @db.Uuid
+  username    String   @unique
+  displayName String   @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  bio         String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  channel          Channel?
+  comments         Comment[]      @relation("CommentAuthor")
+  commentLikes     CommentLike[]
+  subscribedTo     Subscription[] @relation("Subscriber")
+  videoLikes       VideoLike[]
+  watchHistory     WatchHistory[]
+  watchLater       WatchLater[]
+  receivedNotifs   Notification[] @relation("NotifRecipient")
+  triggeredNotifs  Notification[] @relation("NotifActor")
+  userEvents       UserEvent[]
+  reportsFiled     Report[]       @relation("Reporter")
+  reportsReviewed  Report[]       @relation("Reviewer")
+
+  @@map("profiles")
+}
+
+// ===== CHANNELS =====
+model Channel {
+  id              String   @id @default(uuid()) @db.Uuid
+  ownerId         String   @unique @map("owner_id") @db.Uuid
+  handle          String   @unique
+  name            String
+  description     String?
+  avatarUrl       String?  @map("avatar_url")
+  bannerUrl       String?  @map("banner_url")
+  links           Json     @default("[]")
+  subscriberCount Int      @default(0) @map("subscriber_count")
+  videoCount      Int      @default(0) @map("video_count")
+  totalViews      BigInt   @default(0) @map("total_views")
+  isVerified      Boolean  @default(false) @map("is_verified")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  owner         Profile        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  videos        Video[]
+  subscriptions Subscription[]
+  playlists     Playlist[]
+  userEvents    UserEvent[]
+
+  @@index([handle])
+  @@index([ownerId])
+  @@map("channels")
+}
+
+// ===== CATEGORIES =====
+model Category {
+  id           String @id @default(uuid()) @db.Uuid
+  slug         String @unique
+  name         String
+  description  String?
+  icon         String?
+  displayOrder Int    @default(0) @map("display_order")
+
+  videoCategories VideoCategory[]
+
+  @@map("categories")
+}
+
+// ===== VIDEOS =====
+model Video {
+  id             String    @id @default(uuid()) @db.Uuid
+  channelId      String    @map("channel_id") @db.Uuid
+  title          String
+  description    String?
+  duration       Int?
+  status         String    @default("uploading")
+  visibility     String    @default("private")
+  isShort        Boolean   @default(false) @map("is_short")
+  thumbnailUrl   String?   @map("thumbnail_url")
+  hlsManifestUrl String?   @map("hls_manifest_url")
+  rawFileUrl     String?   @map("raw_file_url")
+  viewCount      BigInt    @default(0) @map("view_count")
+  likeCount      Int       @default(0) @map("like_count")
+  dislikeCount   Int       @default(0) @map("dislike_count")
+  commentCount   Int       @default(0) @map("comment_count")
+  scheduledAt    DateTime? @map("scheduled_at")
+  publishedAt    DateTime? @map("published_at")
+  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  channel         Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  asset           VideoAsset?
+  variants        VideoVariant[]
+  thumbnails      Thumbnail[]
+  videoCategories VideoCategory[]
+  videoTags       VideoTag[]
+  comments        Comment[]
+  videoLikes      VideoLike[]
+  playlistItems   PlaylistItem[]
+  watchHistory    WatchHistory[]
+  watchLater      WatchLater[]
+  userEvents      UserEvent[]
+
+  @@index([channelId])
+  @@index([status])
+  @@index([visibility])
+  @@index([publishedAt(sort: Desc)])
+  @@index([isShort])
+  @@index([deletedAt])
+  @@map("videos")
+}
+
+// ===== VIDEO ASSETS =====
+model VideoAsset {
+  id              String   @id @default(uuid()) @db.Uuid
+  videoId         String   @unique @map("video_id") @db.Uuid
+  storagePath     String   @map("storage_path")
+  fileName        String   @map("file_name")
+  fileSize        BigInt   @map("file_size")
+  mimeType        String   @map("mime_type")
+  duration        Decimal? @db.Decimal
+  width           Int?
+  height          Int?
+  fps             Decimal? @db.Decimal
+  codec           String?
+  processingError String?  @map("processing_error")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@map("video_assets")
+}
+
+// ===== VIDEO VARIANTS =====
+model VideoVariant {
+  id          String   @id @default(uuid()) @db.Uuid
+  videoId     String   @map("video_id") @db.Uuid
+  resolution  String
+  width       Int
+  height      Int
+  bitrate     Int?
+  storagePath String   @map("storage_path")
+  fileSize    BigInt?  @map("file_size")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+  @@map("video_variants")
+}
+
+// ===== THUMBNAILS =====
+model Thumbnail {
+  id          String   @id @default(uuid()) @db.Uuid
+  videoId     String   @map("video_id") @db.Uuid
+  storagePath String   @map("storage_path")
+  isAuto      Boolean  @default(true) @map("is_auto")
+  timeOffset  Decimal? @map("time_offset") @db.Decimal
+  isSelected  Boolean  @default(false) @map("is_selected")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+  @@map("thumbnails")
+}
+
+// ===== VIDEO CATEGORIES (many:many) =====
+model VideoCategory {
+  videoId    String @map("video_id") @db.Uuid
+  categoryId String @map("category_id") @db.Uuid
+
+  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([videoId, categoryId])
+  @@map("video_categories")
+}
+
+// ===== TAGS =====
+model Tag {
+  id         String @id @default(uuid()) @db.Uuid
+  name       String @unique
+  usageCount Int    @default(0) @map("usage_count")
+
+  videoTags VideoTag[]
+
+  @@map("tags")
+}
+
+// ===== VIDEO TAGS (many:many) =====
+model VideoTag {
+  videoId String @map("video_id") @db.Uuid
+  tagId   String @map("tag_id") @db.Uuid
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  tag   Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([videoId, tagId])
+  @@index([tagId])
+  @@map("video_tags")
+}
+
+// ===== COMMENTS =====
+model Comment {
+  id        String    @id @default(uuid()) @db.Uuid
+  videoId   String    @map("video_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  parentId  String?   @map("parent_id") @db.Uuid
+  body      String
+  likeCount Int       @default(0) @map("like_count")
+  isPinned  Boolean   @default(false) @map("is_pinned")
+  isHidden  Boolean   @default(false) @map("is_hidden")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  video        Video         @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  author       Profile       @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  parent       Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      Comment[]     @relation("CommentReplies")
+  commentLikes CommentLike[]
+
+  @@index([videoId, parentId, createdAt])
+  @@index([authorId])
+  @@map("comments")
+}
+
+// ===== COMMENT LIKES =====
+model CommentLike {
+  commentId String   @map("comment_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@map("comment_likes")
+}
+
+// ===== SUBSCRIPTIONS =====
+model Subscription {
+  subscriberId String   @map("subscriber_id") @db.Uuid
+  channelId    String   @map("channel_id") @db.Uuid
+  notify       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  subscriber Profile @relation("Subscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
+  channel    Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@id([subscriberId, channelId])
+  @@index([channelId])
+  @@index([subscriberId])
+  @@map("subscriptions")
+}
+
+// ===== VIDEO LIKES / DISLIKES =====
+model VideoLike {
+  videoId   String   @map("video_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  value     Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  video Video   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user  Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([videoId, userId])
+  @@index([videoId])
+  @@index([userId])
+  @@map("video_likes")
+}
+
+// ===== PLAYLISTS =====
+model Playlist {
+  id           String   @id @default(uuid()) @db.Uuid
+  channelId    String   @map("channel_id") @db.Uuid
+  title        String
+  description  String?
+  visibility   String   @default("private")
+  itemCount    Int      @default(0) @map("item_count")
+  thumbnailUrl String?  @map("thumbnail_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  channel Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  items   PlaylistItem[]
+
+  @@index([channelId])
+  @@map("playlists")
+}
+
+// ===== PLAYLIST ITEMS =====
+model PlaylistItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  playlistId String   @map("playlist_id") @db.Uuid
+  videoId    String   @map("video_id") @db.Uuid
+  position   Int
+  addedAt    DateTime @default(now()) @map("added_at")
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, videoId])
+  @@index([playlistId, position])
+  @@map("playlist_items")
+}
+
+// ===== WATCH HISTORY =====
+model WatchHistory {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  videoId    String   @map("video_id") @db.Uuid
+  watchedAt  DateTime @default(now()) @map("watched_at")
+  progress   Int      @default(0)
+  percentage Int      @default(0) @db.SmallInt
+
+  user  Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, watchedAt(sort: Desc)])
+  @@map("watch_history")
+}
+
+// ===== WATCH LATER =====
+model WatchLater {
+  userId  String   @map("user_id") @db.Uuid
+  videoId String   @map("video_id") @db.Uuid
+  addedAt DateTime @default(now()) @map("added_at")
+
+  user  Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@id([userId, videoId])
+  @@map("watch_later")
+}
+
+// ===== NOTIFICATIONS =====
+model Notification {
+  id           String   @id @default(uuid()) @db.Uuid
+  recipientId  String   @map("recipient_id") @db.Uuid
+  type         String
+  actorId      String?  @map("actor_id") @db.Uuid
+  resourceType String?  @map("resource_type")
+  resourceId   String?  @map("resource_id") @db.Uuid
+  title        String
+  body         String?
+  thumbnailUrl String?  @map("thumbnail_url")
+  isRead       Boolean  @default(false) @map("is_read")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  recipient Profile  @relation("NotifRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     Profile? @relation("NotifActor", fields: [actorId], references: [id])
+
+  @@index([recipientId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+// ===== USER EVENTS =====
+model UserEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  sessionId String?  @map("session_id")
+  eventType String   @map("event_type")
+  videoId   String?  @map("video_id") @db.Uuid
+  channelId String?  @map("channel_id") @db.Uuid
+  payload   Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    Profile? @relation(fields: [userId], references: [id])
+  video   Video?   @relation(fields: [videoId], references: [id])
+  channel Channel? @relation(fields: [channelId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([videoId])
+  @@index([eventType])
+  @@map("user_events")
+}
+
+// ===== ANALYTICS SNAPSHOTS =====
+model AnalyticsSnapshot {
+  id                String   @id @default(uuid()) @db.Uuid
+  resourceType      String   @map("resource_type")
+  resourceId        String   @map("resource_id") @db.Uuid
+  period            String
+  periodStart       DateTime @map("period_start") @db.Date
+  views             BigInt   @default(0)
+  watchTimeSec      BigInt   @default(0) @map("watch_time_sec")
+  likes             Int      @default(0)
+  dislikes          Int      @default(0)
+  comments          Int      @default(0)
+  shares            Int      @default(0)
+  subscribersGained Int      @default(0) @map("subscribers_gained")
+  uniqueViewers     Int      @default(0) @map("unique_viewers")
+  avgViewPct        Decimal  @default(0) @map("avg_view_pct") @db.Decimal(5, 2)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([resourceType, resourceId, period, periodStart])
+  @@map("analytics_snapshots")
+}
+
+// ===== REPORTS =====
+model Report {
+  id           String    @id @default(uuid()) @db.Uuid
+  reporterId   String    @map("reporter_id") @db.Uuid
+  resourceType String    @map("resource_type")
+  resourceId   String    @map("resource_id") @db.Uuid
+  reason       String
+  detail       String?
+  status       String    @default("pending")
+  reviewedBy   String?   @map("reviewed_by") @db.Uuid
+  reviewedAt   DateTime? @map("reviewed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  reporter Profile  @relation("Reporter", fields: [reporterId], references: [id])
+  reviewer Profile? @relation("Reviewer", fields: [reviewedBy], references: [id])
+
+  @@index([status, createdAt])
+  @@map("reports")
+}
