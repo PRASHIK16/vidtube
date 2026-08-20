@@ -6,6 +6,7 @@ import { VideoDropzone } from './video-dropzone'
 import { createOrGetChannel, createVideoRecord, updateVideoMetadata, publishVideo } from '@/lib/actions/upload'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { createOrGetChannel, createVideoRecord, updateVideoMetadata, publishVideo, triggerProcessing } from '@/lib/actions/upload'
 
 type Step = 'upload' | 'metadata' | 'done'
 
@@ -37,22 +38,26 @@ export function UploadForm() {
   }, [])
 
   async function handleUploadComplete(file: UploadedFile) {
-    if (!channelId) { toast.error('Channel not ready'); return }
-    setUploaded(file)
+  if (!channelId) { toast.error('Channel not ready'); return }
+  setUploaded(file)
 
-    const name = file.originalName.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
-    setTitle(name)
+  const name = file.originalName.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+  setTitle(name)
 
-    const result = await createVideoRecord({
-      title: name,
-      channelId,
-      ...file,
-    })
+  const result = await createVideoRecord({
+    title: name,
+    channelId,
+    ...file,
+  })
 
-    if (result.error) { toast.error(result.error); return }
-    setVideoId(result.videoId!)
-    setStep('metadata')
-  }
+  if (result.error) { toast.error(result.error); return }
+  setVideoId(result.videoId!)
+
+  // Trigger worker
+  await triggerProcessing(result.videoId!, file.storagePath)
+
+  setStep('metadata')
+}
 
   async function handleSaveMetadata(publish: boolean) {
     if (!videoId) return

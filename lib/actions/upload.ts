@@ -159,3 +159,27 @@ export async function softDeleteVideo(videoId: string) {
   revalidatePath('/studio')
   return { success: true }
 }
+
+export async function triggerProcessing(videoId: string, storagePath: string): Promise<void> {
+  const workerUrl = process.env.VIDEO_WORKER_URL
+  const secret = process.env.VIDEO_WORKER_SECRET
+
+  if (!workerUrl) {
+    console.warn('VIDEO_WORKER_URL not set — skipping processing trigger')
+    return
+  }
+
+  try {
+    await fetch(`${workerUrl}/process`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${secret}`,
+      },
+      body: JSON.stringify({ videoId, storagePath }),
+    })
+    console.log(`Processing triggered for video ${videoId}`)
+  } catch (err) {
+    console.error('Failed to trigger worker:', err)
+  }
+}
