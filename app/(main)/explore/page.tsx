@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 async function getCategoriesWithCount() {
   const categories = await prisma.category.findMany({
-    include: { _count: { select: { videos: true } } },
+    include: { _count: { select: { videoCategories: true } } },
     orderBy: { name: 'asc' },
   })
   return categories
@@ -37,7 +37,7 @@ export default async function ExplorePage() {
               className={`bg-gradient-to-br ${CATEGORY_COLORS[i % CATEGORY_COLORS.length]} rounded-xl p-6 text-white hover:scale-105 transition-transform`}
             >
               <h2 className="text-lg font-bold">{cat.name}</h2>
-              <p className="text-sm opacity-80 mt-1">{cat._count.videos} videos</p>
+              <p className="text-sm opacity-80 mt-1">{cat._count.videoCategories} videos</p>
             </Link>
           ))}
         </div>
