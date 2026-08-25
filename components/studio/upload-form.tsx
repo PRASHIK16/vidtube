@@ -3,10 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { VideoDropzone } from './video-dropzone'
-import { createOrGetChannel, createVideoRecord, updateVideoMetadata, publishVideo } from '@/lib/actions/upload'
+import { createOrGetChannel, createVideoRecord, updateVideoMetadata, publishVideo, triggerProcessing } from '@/lib/actions/upload'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { createOrGetChannel, createVideoRecord, updateVideoMetadata, publishVideo, triggerProcessing } from '@/lib/actions/upload'
 
 type Step = 'upload' | 'metadata' | 'done'
 
