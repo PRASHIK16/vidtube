@@ -37,26 +37,25 @@ export function UploadForm() {
   }, [])
 
   async function handleUploadComplete(file: UploadedFile) {
-  if (!channelId) { toast.error('Channel not ready'); return }
-  setUploaded(file)
+    if (!channelId) { toast.error('Channel not ready'); return }
+    setUploaded(file)
 
-  const name = file.originalName.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
-  setTitle(name)
+    const name = file.originalName.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+    setTitle(name)
 
-  const result = await createVideoRecord({
-    title: name,
-    channelId,
-    ...file,
-  })
+    const result = await createVideoRecord({
+      title: name,
+      channelId,
+      ...file,
+    })
 
-  if (result.error) { toast.error(result.error); return }
-  setVideoId(result.videoId!)
+    if (result.error) { toast.error(result.error); return }
+    setVideoId(result.videoId!)
 
-  // Trigger worker
-  await triggerProcessing(result.videoId!, file.storagePath)
+    await triggerProcessing(result.videoId!, file.storagePath)
 
-  setStep('metadata')
-}
+    setStep('metadata')
+  }
 
   async function handleSaveMetadata(publish: boolean) {
     if (!videoId) return
@@ -74,7 +73,7 @@ export function UploadForm() {
       if (!error) thumbnailStoragePath = path
     }
 
-    await updateVideoMetadata(videoId, { title, description, thumbnailStoragePath })
+    await updateVideoMetadata({ videoId, title, description, thumbnailStoragePath })
 
     if (publish) {
       const res = await publishVideo(videoId)
