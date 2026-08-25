@@ -59,7 +59,7 @@ export function VideoCard({ video }: { video: VideoCardData }) {
           </Link>
           <p className="text-xs text-muted-foreground mt-0.5">
             {formatViews(video.viewCount)} views
-            {video.publishedAt && ` • ${timeAgo(video.publishedAt)}`}
+            {video.publishedAt && ` • ${timeAgo(new Date(video.publishedAt))}`}
           </p>
         </div>
       </div>
