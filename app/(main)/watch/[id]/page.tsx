@@ -23,7 +23,7 @@ export default async function WatchPage({
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const videoUrl = (video as any).asset?.storagePath
     ? `${SUPABASE_URL}/storage/v1/object/public/videos/${(video as any).asset.storagePath}`
-    : undefined
+    : null
 
   const comments = rawComments.map((c) => ({
     ...c,
@@ -38,7 +38,7 @@ export default async function WatchPage({
           <VideoPlayer
             videoId={video.id}
             videoUrl={videoUrl}
-            thumbnailUrl={video.thumbnailUrl ?? undefined}
+            thumbnailUrl={video.thumbnailUrl}
             title={video.title}
           />
           <VideoInfo
