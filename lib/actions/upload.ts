@@ -3,43 +3,34 @@
 import { prisma } from '@/lib/db/prisma'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { revalidatePath } from 'next/cache'
 
-async function getAuthProfile() {
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+
+async function getUser() {
   const cookieStore = await cookies()
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {}
-        },
-      },
-    }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   )
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  return prisma.profile.findUnique({
-    where: { userId: user.id },
-    include: { channel: true },
-  })
+  return user
 }
 
 export async function createOrGetChannel() {
-  const profile = await getAuthProfile()
-  if (!profile) return { error: 'Not authenticated' }
+  const user = await getUser()
+  if (!user) return { channel: null, error: 'Not authenticated' }
+
+  const profile = await prisma.profile.findUnique({
+    where: { id: user.id },
+    include: { channel: true },
+  })
+  if (!profile) return { channel: null, error: 'Profile not found' }
   if (profile.channel) return { channel: profile.channel }
 
   const channel = await prisma.channel.create({
-    data: {
-      profileId: profile.id,
-      name: profile.displayName,
-      handle: profile.username,
-    },
+    data: { ownerId: profile.id, handle: profile.username, name: profile.displayName },
   })
-
   return { channel }
 }
 
@@ -50,24 +41,24 @@ export async function createVideoRecord(data: {
   mimeType: string
   sizeBytes: number
   originalName: string
-  duration?: number
+  duration: number
 }) {
-  const profile = await getAuthProfile()
-  if (!profile) return { error: 'Not authenticated' }
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated' }
 
   const video = await prisma.video.create({
     data: {
       channelId: data.channelId,
       title: data.title,
-      status: 'draft',
-      duration: data.duration ?? null,
-      assets: {
+      status: 'processing',
+      visibility: 'private',
+      asset: {
         create: {
           storagePath: data.storagePath,
+          fileName: data.originalName,
+          fileSize: BigInt(Math.round(data.sizeBytes)),
           mimeType: data.mimeType,
-          sizeBytes: BigInt(Math.round(data.sizeBytes)),
-          originalName: data.originalName,
-          status: 'uploaded',
+          duration: data.duration,
         },
       },
     },
@@ -76,30 +67,23 @@ export async function createVideoRecord(data: {
   return { videoId: video.id }
 }
 
-export async function updateVideoMetadata(videoId: string, data: {
+export async function updateVideoMetadata(data: {
+  videoId: string
   title: string
   description?: string
   thumbnailStoragePath?: string
 }) {
-  const profile = await getAuthProfile()
-  if (!profile) return { error: 'Not authenticated' }
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated' }
 
   await prisma.video.update({
-    where: { id: videoId },
+    where: { id: data.videoId },
     data: {
       title: data.title,
-      description: data.description ?? null,
-      ...(data.thumbnailStoragePath
-        ? {
-            thumbnails: {
-              create: {
-                storagePath: data.thumbnailStoragePath,
-                isSelected: true,
-                isAuto: false,
-              },
-            },
-          }
-        : {}),
+      description: data.description,
+      ...(data.thumbnailStoragePath && {
+        thumbnailUrl: `${SUPABASE_URL}/storage/v1/object/public/thumbnails/${data.thumbnailStoragePath}`,
+      }),
     },
   })
 
@@ -107,79 +91,61 @@ export async function updateVideoMetadata(videoId: string, data: {
 }
 
 export async function publishVideo(videoId: string) {
-  const profile = await getAuthProfile()
-  if (!profile) return { error: 'Not authenticated' }
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated' }
 
   await prisma.video.update({
     where: { id: videoId },
-    data: { status: 'published', publishedAt: new Date() },
+    data: { visibility: 'public', publishedAt: new Date() },
   })
 
-  revalidatePath('/')
-  return { success: true }
-}
-
-export async function getStudioVideos() {
-  const profile = await getAuthProfile()
-  if (!profile?.channel) return []
-
-  const videos = await prisma.video.findMany({
-    where: { channelId: profile.channel.id, deletedAt: null },
-    include: {
-      thumbnails: { where: { isSelected: true }, take: 1 },
-      _count: { select: { likes: true, comments: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  return videos.map((v) => ({
-    id: v.id,
-    title: v.title,
-    status: v.status,
-    viewCount: v.viewCount,
-    likeCount: v._count.likes,
-    commentCount: v._count.comments,
-    createdAt: v.createdAt.toISOString(),
-    thumbnail: v.thumbnails[0]?.storagePath
-      ? `${supabaseUrl}/storage/v1/object/public/thumbnails/${v.thumbnails[0].storagePath}`
-      : null,
-  }))
-}
-
-export async function softDeleteVideo(videoId: string) {
-  const profile = await getAuthProfile()
-  if (!profile) return { error: 'Not authenticated' }
-
-  await prisma.video.update({
-    where: { id: videoId },
-    data: { deletedAt: new Date() },
-  })
-
-  revalidatePath('/studio')
   return { success: true }
 }
 
 export async function triggerProcessing(videoId: string, storagePath: string): Promise<void> {
   const workerUrl = process.env.VIDEO_WORKER_URL
   const secret = process.env.VIDEO_WORKER_SECRET
-
-  if (!workerUrl) {
-    console.warn('VIDEO_WORKER_URL not set — skipping processing trigger')
-    return
-  }
-
+  if (!workerUrl) { console.warn('VIDEO_WORKER_URL not set — skipping'); return }
   try {
     await fetch(`${workerUrl}/process`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${secret}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
       body: JSON.stringify({ videoId, storagePath }),
     })
-    console.log(`Processing triggered for video ${videoId}`)
-  } catch (err) {
-    console.error('Failed to trigger worker:', err)
-  }
+  } catch (err) { console.error('Failed to trigger worker:', err) }
+}
+
+export async function getStudioVideos() {
+  const user = await getUser()
+  if (!user) return []
+
+  const profile = await prisma.profile.findUnique({
+    where: { id: user.id },
+    include: { channel: true },
+  })
+  if (!profile?.channel) return []
+
+  const videos = await prisma.video.findMany({
+    where: { channelId: profile.channel.id, deletedAt: null },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      thumbnails: { where: { isSelected: true }, take: 1 },
+      _count: { select: { comments: true, videoLikes: true } },
+    },
+  })
+
+  return videos.map(v => ({
+    id: v.id,
+    title: v.title,
+    status: v.status,
+    visibility: v.visibility,
+    viewCount: Number(v.viewCount),
+    likeCount: v.likeCount,
+    commentCount: v.commentCount,
+    createdAt: v.createdAt,
+    thumbnailUrl: v.thumbnails[0]
+      ? `${SUPABASE_URL}/storage/v1/object/public/thumbnails/${v.thumbnails[0].storagePath}`
+      : v.thumbnailUrl,
+    _count: v._count,
+  }))
 }
