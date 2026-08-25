@@ -5,7 +5,8 @@ export async function searchVideos(query: string) {
   if (!query.trim()) return []
   const videos = await prisma.video.findMany({
     where: {
-      status: 'published',
+      status: 'ready',
+      visibility: 'public',
       deletedAt: null,
       OR: [
         { title: { contains: query, mode: 'insensitive' } },
@@ -24,7 +25,7 @@ export async function searchVideos(query: string) {
     id: v.id,
     title: v.title,
     duration: v.duration,
-    viewCount: v.viewCount,
+    viewCount: Number(v.viewCount),
     publishedAt: v.publishedAt?.toISOString() ?? null,
     thumbnail: v.thumbnails[0]?.storagePath
       ? `${url}/storage/v1/object/public/thumbnails/${v.thumbnails[0].storagePath}`
