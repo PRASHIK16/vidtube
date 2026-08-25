@@ -48,8 +48,8 @@ export default async function StudioPage() {
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                       <div className="w-24 aspect-video bg-zinc-800 rounded overflow-hidden flex-shrink-0">
-                        {v.thumbnail && (
-                          <Image src={v.thumbnail} alt={v.title} width={96} height={54} className="object-cover w-full h-full" />
+                        {v.thumbnailUrl && (
+                          <Image src={v.thumbnailUrl} alt={v.title} width={96} height={54} className="object-cover w-full h-full" />
                         )}
                       </div>
                       <Link href={`/watch/${v.id}`} className="font-medium hover:text-blue-500 line-clamp-2">

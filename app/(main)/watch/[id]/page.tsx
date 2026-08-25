@@ -11,14 +11,24 @@ export default async function WatchPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const [video, comments] = await Promise.all([
+  const [video, rawComments] = await Promise.all([
     getVideoById(id),
     getComments(id),
   ])
 
   if (!video) notFound()
 
-  const interaction = await getUserVideoInteraction(id, video.channel.id)
+  const interaction = await getUserVideoInteraction(id)
+
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const videoUrl = (video as any).asset?.storagePath
+    ? `${SUPABASE_URL}/storage/v1/object/public/videos/${(video as any).asset.storagePath}`
+    : undefined
+
+  const comments = rawComments.map((c) => ({
+    ...c,
+    createdAt: c.createdAt.toISOString(),
+  }))
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -27,19 +37,20 @@ export default async function WatchPage({
         <div className="flex-1 min-w-0">
           <VideoPlayer
             videoId={video.id}
-            videoUrl={video.videoUrl}
-            thumbnailUrl={video.thumbnailUrl}
+            videoUrl={videoUrl}
+            thumbnailUrl={video.thumbnailUrl ?? undefined}
             title={video.title}
           />
           <VideoInfo
             videoId={video.id}
             title={video.title}
-            description={video.description}
+            description={video.description ?? undefined}
             viewCount={video.viewCount}
-            publishedAt={video.publishedAt}
+            publishedAt={video.publishedAt?.toISOString() ?? null}
             likeCount={video.likeCount}
             dislikeCount={video.dislikeCount}
             initialLiked={interaction.liked}
+            initialDisliked={interaction.disliked}
           />
           <ChannelInfo
             channel={video.channel}
@@ -52,7 +63,7 @@ export default async function WatchPage({
           />
         </div>
 
-        {/* Sidebar — future: related videos */}
+        {/* Sidebar */}
         <div className="w-full lg:w-96 flex-shrink-0">
           <p className="text-sm text-muted-foreground">Related videos coming soon.</p>
         </div>

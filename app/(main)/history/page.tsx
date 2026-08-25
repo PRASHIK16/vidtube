@@ -3,7 +3,9 @@ import { VideoGrid } from '@/components/video/video-grid'
 import { ClearHistoryButton } from '@/components/history/clear-history-button'
 
 export default async function HistoryPage() {
-  const videos = await getWatchHistory()
+  const history = await getWatchHistory()
+  const videos = history.map((h) => h.video)
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">

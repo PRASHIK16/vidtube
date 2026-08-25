@@ -3,7 +3,7 @@ import { VideoGrid } from '@/components/video/video-grid'
 
 async function getTrendingVideos() {
   const videos = await prisma.video.findMany({
-    where: { status: 'published', deletedAt: null },
+    where: { status: 'ready', visibility: 'public', deletedAt: null },
     include: { channel: true, thumbnails: { where: { isSelected: true }, take: 1 } },
     orderBy: { viewCount: 'desc' },
     take: 48,
@@ -13,7 +13,7 @@ async function getTrendingVideos() {
     id: v.id,
     title: v.title,
     duration: v.duration,
-    viewCount: v.viewCount,
+    viewCount: Number(v.viewCount),
     publishedAt: v.publishedAt?.toISOString() ?? null,
     thumbnail: v.thumbnails[0]?.storagePath
       ? `${url}/storage/v1/object/public/thumbnails/${v.thumbnails[0].storagePath}`
