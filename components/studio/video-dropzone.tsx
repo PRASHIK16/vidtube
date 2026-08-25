@@ -34,7 +34,6 @@ export function VideoDropzone({ channelId, onUploadComplete }: Props) {
     setStatus('uploading')
     setProgress(0)
 
-    // Get duration from video element
     const duration = await new Promise<number>((resolve) => {
       const video = document.createElement('video')
       video.preload = 'metadata'
@@ -55,10 +54,10 @@ export function VideoDropzone({ channelId, onUploadComplete }: Props) {
       .upload(storagePath, file, {
         cacheControl: '3600',
         upsert: false,
-        onUploadProgress: (p) => {
+        onUploadProgress: (p: { loaded: number; total: number }) => {
           setProgress(Math.round((p.loaded / p.total) * 100))
         },
-      } as Parameters<typeof supabase.storage.from>[0] extends infer T ? T : never)
+      } as any)
 
     if (error) {
       setErrorMsg(error.message)
