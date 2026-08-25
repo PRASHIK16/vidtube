@@ -9,47 +9,56 @@ import { toast } from 'sonner'
 type Props = {
   videoId: string
   title: string
-  description: string | null
+  description?: string
   viewCount: number
   publishedAt: string | null
   likeCount: number
   dislikeCount: number
-  initialLiked: string | null
+  initialLiked: boolean
+  initialDisliked: boolean
 }
 
 export function VideoInfo({
   videoId, title, description, viewCount, publishedAt,
-  likeCount, dislikeCount, initialLiked,
+  likeCount, dislikeCount, initialLiked, initialDisliked,
 }: Props) {
-  const [liked, setLiked] = useState<string | null>(initialLiked)
+  const [liked, setLiked] = useState(initialLiked)
+  const [disliked, setDisliked] = useState(initialDisliked)
   const [likes, setLikes] = useState(likeCount)
   const [dislikes, setDislikes] = useState(dislikeCount)
   const [expanded, setExpanded] = useState(false)
 
-  async function handleLike(type: 'like' | 'dislike') {
-    const prev = liked
+  async function handleLike(value: 1 | -1) {
+    const prevLiked = liked
+    const prevDisliked = disliked
     const prevLikes = likes
     const prevDislikes = dislikes
 
     // Optimistic update
-    if (liked === type) {
-      setLiked(null)
-      if (type === 'like') setLikes((l) => l - 1)
-      else setDislikes((d) => d - 1)
+    if (value === 1) {
+      if (liked) {
+        setLiked(false); setLikes((l) => l - 1)
+      } else {
+        if (disliked) { setDisliked(false); setDislikes((d) => d - 1) }
+        setLiked(true); setLikes((l) => l + 1)
+      }
     } else {
-      if (liked === 'like') setLikes((l) => l - 1)
-      if (liked === 'dislike') setDislikes((d) => d - 1)
-      setLiked(type)
-      if (type === 'like') setLikes((l) => l + 1)
-      else setDislikes((d) => d + 1)
+      if (disliked) {
+        setDisliked(false); setDislikes((d) => d - 1)
+      } else {
+        if (liked) { setLiked(false); setLikes((l) => l - 1) }
+        setDisliked(true); setDislikes((d) => d + 1)
+      }
     }
 
-    const result = await toggleVideoLike(videoId, type)
-    if (result.error) {
-      setLiked(prev)
+    try {
+      await toggleVideoLike(videoId, value)
+    } catch {
+      setLiked(prevLiked)
+      setDisliked(prevDisliked)
       setLikes(prevLikes)
       setDislikes(prevDislikes)
-      toast.error(result.error === 'Not authenticated' ? 'Sign in to like videos' : result.error)
+      toast.error('Sign in to like videos')
     }
   }
 
@@ -64,16 +73,16 @@ export function VideoInfo({
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-full border overflow-hidden">
             <button
-              onClick={() => handleLike('like')}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium hover:bg-muted transition-colors ${liked === 'like' ? 'text-blue-500' : ''}`}
+              onClick={() => handleLike(1)}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium hover:bg-muted transition-colors ${liked ? 'text-blue-500' : ''}`}
             >
               <ThumbsUp className="w-4 h-4" />
               {formatViews(likes)}
             </button>
             <div className="w-px h-6 bg-border" />
             <button
-              onClick={() => handleLike('dislike')}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium hover:bg-muted transition-colors ${liked === 'dislike' ? 'text-blue-500' : ''}`}
+              onClick={() => handleLike(-1)}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium hover:bg-muted transition-colors ${disliked ? 'text-blue-500' : ''}`}
             >
               <ThumbsDown className="w-4 h-4" />
             </button>
