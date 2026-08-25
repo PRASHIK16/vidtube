@@ -27,14 +27,16 @@ export function ChannelInfo({ channel, initialSubscribed }: Props) {
   async function handleSubscribe() {
     setLoading(true)
     const prev = subscribed
+    const prevCount = subCount
     setSubscribed(!subscribed)
     setSubCount((c) => subscribed ? c - 1 : c + 1)
 
-    const result = await toggleSubscription(channel.id)
-    if (result.error) {
+    try {
+      await toggleSubscription(channel.id)
+    } catch {
       setSubscribed(prev)
-      setSubCount(channel.subscriberCount)
-      toast.error(result.error === 'Not authenticated' ? 'Sign in to subscribe' : result.error)
+      setSubCount(prevCount)
+      toast.error('Sign in to subscribe')
     }
     setLoading(false)
   }
