@@ -4,6 +4,7 @@ import { VideoPlayer } from '@/components/watch/video-player'
 import { VideoInfo } from '@/components/watch/video-info'
 import { ChannelInfo } from '@/components/watch/channel-info'
 import { CommentsSection } from '@/components/watch/comments-section'
+import { ViewCounter } from '@/components/watch/view-counter'
 
 export default async function WatchPage({
   params,
@@ -32,6 +33,7 @@ export default async function WatchPage({
 
   return (
     <div className="max-w-[1400px] mx-auto">
+      <ViewCounter videoId={video.id} />
       <div className="flex gap-6 flex-col lg:flex-row">
         {/* Main column */}
         <div className="flex-1 min-w-0">
