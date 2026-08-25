@@ -7,7 +7,7 @@ export type VideoCardData = {
   title: string
   duration: number | null
   viewCount: number
-  publishedAt: Date | null
+  publishedAt: string | null
   thumbnail: string | null
   channel: {
     id: string
@@ -21,7 +21,8 @@ export async function getHomeVideos(categorySlug?: string): Promise<VideoCardDat
   try {
     const videos = await prisma.video.findMany({
       where: {
-        status: 'published',
+        status: 'ready',
+        visibility: 'public',
         ...(categorySlug && categorySlug !== 'all'
           ? {
               categories: {
@@ -47,8 +48,8 @@ export async function getHomeVideos(categorySlug?: string): Promise<VideoCardDat
       id: v.id,
       title: v.title,
       duration: v.duration,
-      viewCount: v.viewCount,
-      publishedAt: v.publishedAt,
+      viewCount: Number(v.viewCount),
+      publishedAt: v.publishedAt?.toISOString() ?? null,
       thumbnail: v.thumbnails[0]?.storagePath
         ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/thumbnails/${v.thumbnails[0].storagePath}`
         : null,
