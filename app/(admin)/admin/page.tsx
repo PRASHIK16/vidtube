@@ -7,10 +7,10 @@ export default async function AdminPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Users" value={stats.totalUsers} />
-        <StatCard label="Total Videos" value={stats.totalVideos} />
+        <StatCard label="Total Users" value={stats.userCount} />
+        <StatCard label="Total Videos" value={stats.videoCount} />
         <StatCard label="Total Views" value={stats.totalViews} />
-        <StatCard label="Open Reports" value={stats.openReports} />
+        <StatCard label="Open Reports" value={stats.pendingReports} />
       </div>
     </div>
   )
