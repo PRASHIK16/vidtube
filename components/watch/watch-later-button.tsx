@@ -11,12 +11,12 @@ export function WatchLaterButton({ videoId, initialSaved }: { videoId: string; i
 
   async function handle() {
     setLoading(true)
-    const result = await toggleWatchLater(videoId)
-    if (result.error) {
+    try {
+      const result = await toggleWatchLater(videoId)
+      setSaved(result.added)
+      toast.success(result.added ? 'Saved to Watch Later' : 'Removed from Watch Later')
+    } catch {
       toast.error('Sign in to save videos')
-    } else {
-      setSaved(result.saved!)
-      toast.success(result.saved ? 'Saved to Watch Later' : 'Removed from Watch Later')
     }
     setLoading(false)
   }
