@@ -8,14 +8,15 @@ import { Send } from 'lucide-react'
 
 type Comment = {
   id: string
-  content: string
+  body: string
+  likeCount: number
+  isPinned: boolean
   createdAt: string
-  replyCount: number
   author: {
+    id: string
     username: string
     displayName: string
     avatarUrl: string | null
-    handle: string
   }
 }
 
@@ -27,6 +28,7 @@ type Props = {
 
 export function CommentsSection({ videoId, commentCount, initialComments }: Props) {
   const [comments, setComments] = useState(initialComments)
+  const [count, setCount] = useState(commentCount)
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -35,19 +37,25 @@ export function CommentsSection({ videoId, commentCount, initialComments }: Prop
     if (!text.trim()) return
     setSubmitting(true)
 
-    const result = await addComment(videoId, text.trim())
-    if (result.error) {
-      toast.error(result.error === 'Not authenticated' ? 'Sign in to comment' : result.error)
-    } else {
-      setText('')
-      toast.success('Comment posted!')
+    try {
+      const result = await addComment(videoId, text.trim())
+      if (!result) {
+        toast.error('Sign in to comment')
+      } else {
+        setComments((prev) => [{ ...result, createdAt: result.createdAt.toISOString() }, ...prev])
+        setCount((c) => c + 1)
+        setText('')
+        toast.success('Comment posted!')
+      }
+    } catch {
+      toast.error('Failed to post comment')
     }
     setSubmitting(false)
   }
 
   return (
     <div>
-      <h2 className="font-semibold mb-4">{commentCount} Comments</h2>
+      <h2 className="font-semibold mb-4">{count} Comments</h2>
 
       {/* Add comment */}
       <form onSubmit={handleSubmit} className="flex gap-3 mb-6">
@@ -93,15 +101,10 @@ export function CommentsSection({ videoId, commentCount, initialComments }: Prop
             </div>
             <div>
               <div className="flex items-baseline gap-2 mb-0.5">
-                <span className="text-sm font-semibold">@{c.author.handle}</span>
+                <span className="text-sm font-semibold">@{c.author.username}</span>
                 <span className="text-xs text-muted-foreground">{timeAgo(new Date(c.createdAt))}</span>
               </div>
-              <p className="text-sm">{c.content}</p>
-              {c.replyCount > 0 && (
-                <button className="text-xs text-blue-500 mt-1 hover:text-blue-400">
-                  {c.replyCount} {c.replyCount === 1 ? 'reply' : 'replies'}
-                </button>
-              )}
+              <p className="text-sm">{c.body}</p>
             </div>
           </div>
         ))}
