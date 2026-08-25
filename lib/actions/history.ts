@@ -1,62 +1,63 @@
 'use server'
+
 import { prisma } from '@/lib/db/prisma'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-async function getProfile() {
+async function getUser() {
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: (s) => { try { s.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {} } } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   )
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  return prisma.profile.findUnique({ where: { userId: user.id } })
+  return user
 }
 
 export async function addToHistory(videoId: string) {
-  const profile = await getProfile()
-  if (!profile) return
+  const user = await getUser()
+  if (!user) return
+
   await prisma.watchHistory.upsert({
-    where: { profileId_videoId: { profileId: profile.id, videoId } },
+    where: { userId_videoId: { userId: user.id, videoId } },
     update: { watchedAt: new Date() },
-    create: { profileId: profile.id, videoId, watchedAt: new Date() },
+    create: { userId: user.id, videoId },
   })
 }
 
 export async function getWatchHistory() {
-  const profile = await getProfile()
-  if (!profile) return []
+  const user = await getUser()
+  if (!user) return []
+
   const history = await prisma.watchHistory.findMany({
-    where: { profileId: profile.id },
+    where: { userId: user.id },
+    orderBy: { watchedAt: 'desc' },
+    take: 50,
     include: {
       video: {
-        include: { channel: true, thumbnails: { where: { isSelected: true }, take: 1 } },
+        include: { channel: { select: { id: true, name: true, handle: true, avatarUrl: true } } },
       },
     },
-    orderBy: { watchedAt: 'desc' },
-    take: 48,
   })
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  return history
-    .filter((h) => h.video.status === 'published' && !h.video.deletedAt)
-    .map((h) => ({
+
+  return history.map(h => ({
+    id: h.id,
+    watchedAt: h.watchedAt,
+    video: {
       id: h.video.id,
       title: h.video.title,
       duration: h.video.duration,
-      viewCount: h.video.viewCount,
+      viewCount: Number(h.video.viewCount),
       publishedAt: h.video.publishedAt?.toISOString() ?? null,
-      watchedAt: h.watchedAt.toISOString(),
-      thumbnail: h.video.thumbnails[0]?.storagePath
-        ? `${url}/storage/v1/object/public/thumbnails/${h.video.thumbnails[0].storagePath}`
-        : null,
-      channel: { id: h.video.channel.id, name: h.video.channel.name, handle: h.video.channel.handle, avatarUrl: h.video.channel.avatarUrl },
-    }))
+      thumbnail: h.video.thumbnailUrl,
+      channel: h.video.channel,
+    },
+  }))
 }
 
 export async function clearHistory() {
-  const profile = await getProfile()
-  if (!profile) return
-  await prisma.watchHistory.deleteMany({ where: { profileId: profile.id } })
+  const user = await getUser()
+  if (!user) return
+  await prisma.watchHistory.deleteMany({ where: { userId: user.id } })
 }
